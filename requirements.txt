@@ -1,0 +1,6 @@
+Flask
+Flask-Cors
+yfinance
+gunicorn
+PyJWT
+bcrypt
