@@ -327,5 +327,3 @@ def get_earning_summary_route():
     
     result = get_earning_summary(sectors_param, date_from_param, date_to_param, page, per_page)
     return jsonify(result)
-
-app.run(debug=True) 
