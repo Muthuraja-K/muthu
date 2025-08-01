@@ -387,4 +387,5 @@ def get_sentiment_route(ticker):
     except Exception as e:
         logging.error(f"Error getting sentiment for {ticker}: {str(e)}")
         return jsonify({'error': 'Failed to get sentiment data'}), 500
-#app.run(debug=True) 
+
+app.run(debug=True) 
