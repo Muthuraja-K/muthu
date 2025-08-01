@@ -12,6 +12,7 @@ from sector_operations import get_sectors_with_filters, add_sector_to_file, upda
 from user_operations import get_users_with_filters, add_user_to_file, update_user_in_file, delete_user_from_file
 from stock_operations import get_stock_with_filters, get_stock_details, add_stock_to_file, update_stock_in_file, delete_stock_from_file
 from auth_operations import login_user, require_auth, require_admin, create_default_users
+from sentiment_analysis import get_sentiment_analysis
 
 
 # Set up logging
@@ -113,8 +114,10 @@ def get_stockdetails_route():
     isxticker_param = request.args.get('isxticker', None)
     sort_by = request.args.get('sort_by', None)
     sort_order = request.args.get('sort_order', 'asc')
+    page = int(request.args.get('page', 1))
+    per_page = int(request.args.get('per_page', 50))
     
-    result = get_stock_details(tickers_param, sector_param, isxticker_param, sort_by, sort_order)
+    result = get_stock_details(tickers_param, sector_param, isxticker_param, sort_by, sort_order, page, per_page)
     return jsonify(result)
 
 # Admin-only routes
@@ -327,3 +330,62 @@ def get_earning_summary_route():
     
     result = get_earning_summary(sectors_param, date_from_param, date_to_param, page, per_page)
     return jsonify(result)
+
+# Download endpoints
+@app.route('/api/download/<file_type>', methods=['GET'])
+@require_auth
+def download_file_route(file_type):
+    """Download JSON files based on file type"""
+    try:
+        if file_type == 'users':
+            # Only admin can download users file
+            if request.user.get('role') != 'admin':
+                return jsonify({'error': 'Admin access required'}), 403
+            
+            with open('user.json', 'r') as file:
+                data = json.load(file)
+            
+            # Remove password hashes for security
+            for user in data:
+                if 'password' in user:
+                    del user['password']
+            
+            return jsonify(data)
+            
+        elif file_type == 'stocks':
+            # Load stocks data
+            stocks = load_stocks()
+            return jsonify(stocks)
+            
+        elif file_type == 'sectors':
+            # Load sectors data
+            sectors = load_sectors()
+            return jsonify(sectors)
+            
+        else:
+            return jsonify({'error': 'Invalid file type'}), 400
+            
+    except FileNotFoundError:
+        return jsonify({'error': 'File not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Sentiment Analysis endpoint
+@app.route('/api/sentiment/<ticker>', methods=['GET'])
+@require_auth
+def get_sentiment_route(ticker):
+    """Get sentiment analysis for a specific ticker"""
+    try:
+        if not ticker or ticker.strip() == '':
+            return jsonify({'error': 'Ticker is required'}), 400
+        
+        ticker = ticker.strip().upper()
+        sentiment_data = get_sentiment_analysis(ticker)
+        
+        return jsonify(sentiment_data)
+        
+    except Exception as e:
+        logging.error(f"Error getting sentiment for {ticker}: {str(e)}")
+        return jsonify({'error': 'Failed to get sentiment data'}), 500
+
+app.run(debug=True) 

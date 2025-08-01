@@ -15,6 +15,26 @@ def fmt_percent(val):
     except Exception:
         return val
 
+def fmt_market_cap(val):
+    """
+    Format market cap values to show billions and trillions with proper suffixes
+    Examples: 1500000000 -> $1.50B, 2500000000000 -> $2.50T
+    """
+    try:
+        f = float(val)
+        if f >= 1e12:  # Trillion
+            return f"${f/1e12:.2f}T"
+        elif f >= 1e9:  # Billion
+            return f"${f/1e9:.2f}B"
+        elif f >= 1e6:  # Million
+            return f"${f/1e6:.2f}M"
+        elif f >= 1e3:  # Thousand
+            return f"${f/1e3:.2f}K"
+        else:
+            return f"${f:,.2f}"
+    except Exception:
+        return val
+
 def convert_ui_date_to_iso(ui_date):
     """
     Convert UI date format (YYYY-MM-DD) to ISO format (YYYY-MM-DD)

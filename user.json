@@ -1,16 +1,16 @@
 [
   {
     "username": "admin",
-    "password": "$2b$12$3KWAY.XAJ1F1l59TqYCcnOyiLHUX9/fxumFBwL4BjFHnfL8bCS2hi",
+    "password": "$2b$12$jiIHi.qhBDD3YJfrtZ0xHO5A8wCkBIicr8nq6WbHaGD.rqcir9luW",
     "role": "admin",
-    "firstname": "Muthuraja",
-    "lastname": "Karuppiah"
+    "firstname": "Admin",
+    "lastname": "User"
   },
   {
     "username": "user",
-    "password": "$2b$12$3O0fqZEmorKHhhqQ3aGrAu8qIlTt8lhdgjRvRn8tzS/u8oJK/6VGa",
+    "password": "$2b$12$dRAVrBtaWS.DS1VCdSQgweNfKlMvgQgf1gLKwYZHV2XugJvG2.Ide",
     "role": "user",
     "firstname": "Regular",
     "lastname": "User"
   }
-] 
+]
