@@ -4,7 +4,8 @@ import jwt
 import bcrypt
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import request, jsonify
+from fastapi import HTTPException, Depends, Header
+from typing import Optional, Dict, Any
 
 # Secret key for JWT tokens (in production, use a secure secret key)
 SECRET_KEY = "your-secret-key-here-change-in-production"
@@ -74,54 +75,32 @@ def login_user(username, password):
         'message': 'Invalid username or password'
     }
 
-def require_auth(f):
-    """Decorator to require authentication for routes"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        token = request.headers.get('Authorization')
-        
-        if not token:
-            return jsonify({'error': 'No token provided'}), 401
-        
-        # Remove 'Bearer ' prefix if present
-        if token.startswith('Bearer '):
-            token = token[7:]
-        
-        payload = verify_token(token)
-        if not payload:
-            return jsonify({'error': 'Invalid or expired token'}), 401
-        
-        # Add user info to request
-        request.user = payload
-        return f(*args, **kwargs)
+def get_current_user(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
+    """Dependency to get current user from token"""
+    if not authorization:
+        raise HTTPException(status_code=401, detail={'error': 'No token provided'})
     
-    return decorated_function
+    # Remove 'Bearer ' prefix if present
+    if authorization.startswith('Bearer '):
+        token = authorization[7:]
+    else:
+        token = authorization
+    
+    payload = verify_token(token)
+    if not payload:
+        raise HTTPException(status_code=401, detail={'error': 'Invalid or expired token'})
+    
+    return payload
 
-def require_admin(f):
-    """Decorator to require admin role for routes"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        token = request.headers.get('Authorization')
-        
-        if not token:
-            return jsonify({'error': 'No token provided'}), 401
-        
-        # Remove 'Bearer ' prefix if present
-        if token.startswith('Bearer '):
-            token = token[7:]
-        
-        payload = verify_token(token)
-        if not payload:
-            return jsonify({'error': 'Invalid or expired token'}), 401
-        
-        if payload.get('role') != 'admin':
-            return jsonify({'error': 'Admin access required'}), 403
-        
-        # Add user info to request
-        request.user = payload
-        return f(*args, **kwargs)
-    
-    return decorated_function
+def require_auth(current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
+    """Dependency to require authentication"""
+    return current_user
+
+def require_admin(current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
+    """Dependency to require admin role"""
+    if current_user.get('role') != 'admin':
+        raise HTTPException(status_code=403, detail={'error': 'Admin access required'})
+    return current_user
 
 def create_default_users():
     """Create default users if user.json doesn't exist"""

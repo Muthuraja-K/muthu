@@ -1,5 +1,8 @@
-from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
+from fastapi import FastAPI, Request, HTTPException, Depends, status
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from typing import Optional, Dict, Any
 import yfinance as yf
 import json
 import logging
@@ -13,334 +16,332 @@ from user_operations import get_users_with_filters, add_user_to_file, update_use
 from stock_operations import get_stock_with_filters, get_stock_details, add_stock_to_file, update_stock_in_file, delete_stock_from_file
 from auth_operations import login_user, require_auth, require_admin, create_default_users
 from sentiment_analysis import get_sentiment_analysis
-
+from models import (
+    LoginRequest, TokenRequest, StockRequest, StockUpdateRequest, StockDeleteRequest,
+    SectorRequest, SectorUpdateRequest, SectorDeleteRequest,
+    UserRequest, UserUpdateRequest, UserDeleteRequest
+)
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
 
+app = FastAPI()
 
-app = Flask(__name__, static_folder='static')
-CORS(app)
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Create default users on startup
-create_default_users()
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
-@app.route("/", defaults={"path": ""})
-@app.route("/<path:path>")
-def serve_frontend(path):
-    file_path = os.path.join(app.static_folder, path)
-    if path != "" and os.path.exists(file_path):
-        return send_from_directory(app.static_folder, path)
-    else:
-        return send_from_directory(app.static_folder, "index.html")
+# Application startup event
+@app.on_event("startup")
+async def startup_event():
+    logging.info("Stock Prediction API started successfully!")
 
-
-def serve_index():
-    return send_from_directory(app.static_folder, 'index.html')
-
-@app.route('/<path:path>')
-def serve_static(path):
-    return send_from_directory(app.static_folder, path)
-
-
-
+@app.get("/")
+async def serve_frontend():
+    return FileResponse("static/index.html")
 
 # Authentication endpoints
-@app.route('/api/login', methods=['POST'])
-def login_route():
-    data = request.get_json()
-    if not data or 'username' not in data or 'password' not in data:
-        return jsonify({'error': 'username and password are required'}), 400
-    
-    username = data['username']
-    password = data['password']
-    
-    result = login_user(username, password)
+@app.post('/api/login')
+async def login_route(request: LoginRequest):
+    result = login_user(request.username, request.password)
     
     if result['success']:
-        return jsonify(result)
+        return result
     else:
-        return jsonify(result), 401
+        raise HTTPException(status_code=401, detail=result)
 
-@app.route('/api/verify-token', methods=['POST'])
-def verify_token_route():
-    data = request.get_json()
-    if not data or 'token' not in data:
-        return jsonify({'error': 'token is required'}), 400
-    
-    token = data['token']
+@app.post('/api/verify-token')
+async def verify_token_route(request: TokenRequest):
     from auth_operations import verify_token
     
-    payload = verify_token(token)
+    payload = verify_token(request.token)
     if payload:
-        return jsonify({
+        return {
             'valid': True,
             'username': payload['username'],
             'role': payload['role'],
             'firstname': payload.get('firstname', ''),
             'lastname': payload.get('lastname', '')
-        })
+        }
     else:
-        return jsonify({'valid': False}), 401
+        raise HTTPException(status_code=401, detail={'valid': False})
 
 # Protected routes - require authentication
-@app.route('/api/getstock', methods=['GET'])
-@require_auth
-def get_stock_route():
-  
-    sector_param = request.args.get('sector', '').strip().lower()
-    ticker_param = request.args.get('ticker', '').strip().lower()
-    isxticker_param = request.args.get('isxticker', None)
-    page = int(request.args.get('page', 1))
-    per_page = int(request.args.get('per_page', 10))
+@app.get('/api/getstock')
+async def get_stock_route(
+    sector: str = "",
+    ticker: str = "",
+    isxticker: Optional[bool] = None,
+    page: int = 1,
+    per_page: int = 10,
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
+    sector_param = sector.strip().lower()
+    ticker_param = ticker.strip().lower()
     
-    
-    result = get_stock_with_filters(sector_param, ticker_param, isxticker_param, page, per_page)
+    result = get_stock_with_filters(sector_param, ticker_param, isxticker, page, per_page)
     
     # Always include isxticker in results
     for s in result['results']:
         if 'isxticker' not in s:
             s['isxticker'] = False
     
-   
-    
-    return jsonify(result)
+    return result
 
-@app.route('/api/getstockdetails', methods=['GET'])
-@require_auth
-def get_stockdetails_route():
-    tickers_param = request.args.get('ticker', '').strip()
-    sector_param = request.args.get('sector', '').strip().lower()
-    isxticker_param = request.args.get('isxticker', None)
-    sort_by = request.args.get('sort_by', None)
-    sort_order = request.args.get('sort_order', 'asc')
-    page = int(request.args.get('page', 1))
-    per_page = int(request.args.get('per_page', 50))
+@app.get('/api/getstockdetails')
+async def get_stockdetails_route(
+    ticker: str = "",
+    sector: str = "",
+    isxticker: Optional[bool] = None,
+    sort_by: Optional[str] = None,
+    sort_order: str = "asc",
+    page: int = 1,
+    per_page: int = 50,
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
+    tickers_param = ticker.strip()
+    sector_param = sector.strip().lower()
     
-    result = get_stock_details(tickers_param, sector_param, isxticker_param, sort_by, sort_order, page, per_page)
-    return jsonify(result)
+    result = get_stock_details(tickers_param, sector_param, isxticker, sort_by, sort_order, page, per_page)
+    return result
 
 # Admin-only routes
-@app.route('/api/stocks', methods=['POST'])
-@require_admin
-def add_stock_route():
-    data = request.get_json()
-    if not data or 'ticker' not in data or 'sector' not in data:
-        return jsonify({'error': 'ticker and sector are required'}), 400
-    
-    ticker = data['ticker']
-    sector = data['sector']
-    isxticker = data.get('isxticker', False)
-    
-    success, message = add_stock_to_file(ticker, sector, isxticker)
+@app.post('/api/stocks')
+async def add_stock_route(
+    request: StockRequest,
+    current_user: Dict[str, Any] = Depends(require_admin)
+):
+    success, message = add_stock_to_file(request.ticker, request.sector, request.isxticker)
     
     if success:
-        return jsonify({'message': message, 'stock': {'ticker': ticker, 'sector': sector, 'isxticker': isxticker}}), 201
+        return {
+            'message': message, 
+            'stock': {
+                'ticker': request.ticker, 
+                'sector': request.sector, 
+                'isxticker': request.isxticker
+            }
+        }
     else:
-        return jsonify({'error': message}), 400
+        raise HTTPException(status_code=400, detail={'error': message})
 
-@app.route('/api/stocks/update', methods=['PUT'])
-@require_admin
-def update_stock_route():
+@app.put('/api/stocks/update')
+async def update_stock_route(
+    request: StockUpdateRequest,
+    current_user: Dict[str, Any] = Depends(require_admin)
+):
     logging.info(f"Updating stock")
-    logging.info(f"Request data: {request.get_json()}")
+    logging.info(f"Request data: {request.dict()}")
     
-    data = request.get_json()
-    if not data or 'oldTicker' not in data or 'sector' not in data:
-        logging.error(f"Invalid request data: {data}")
-        return jsonify({'error': 'oldTicker and sector are required'}), 400
+    new_ticker = request.ticker if request.ticker else request.oldTicker
     
-    old_ticker = data['oldTicker']
-    new_ticker = data.get('ticker', old_ticker)  # Use new ticker if provided, otherwise keep old ticker
-    sector = data['sector']
-    isxticker = data.get('isxticker', False)
+    logging.info(f"Updating stock {request.oldTicker} to {new_ticker} with sector: {request.sector}, isxticker: {request.isxticker}")
     
-    logging.info(f"Updating stock {old_ticker} to {new_ticker} with sector: {sector}, isxticker: {isxticker}")
-    
-    success, message = update_stock_in_file(old_ticker, sector, isxticker, new_ticker)
+    success, message = update_stock_in_file(request.oldTicker, request.sector, request.isxticker, new_ticker)
     
     logging.info(f"Update result: success={success}, message={message}")
     
     if success:
-        return jsonify({'message': message, 'stock': {'ticker': new_ticker, 'sector': sector, 'isxticker': isxticker}})
+        return {
+            'message': message, 
+            'stock': {
+                'ticker': new_ticker, 
+                'sector': request.sector, 
+                'isxticker': request.isxticker
+            }
+        }
     else:
-        return jsonify({'error': message}), 404
+        raise HTTPException(status_code=404, detail={'error': message})
 
-@app.route('/api/stocks/delete', methods=['POST'])
-@require_admin
-def delete_stock_route():
-    data = request.get_json()
-    if not data or 'ticker' not in data:
-        return jsonify({'error': 'ticker is required'}), 400
-    
-    ticker = data['ticker']
-    success, message = delete_stock_from_file(ticker)
+@app.post('/api/stocks/delete')
+async def delete_stock_route(
+    request: StockDeleteRequest,
+    current_user: Dict[str, Any] = Depends(require_admin)
+):
+    success, message = delete_stock_from_file(request.ticker)
     
     if success:
-        return jsonify({'message': message, 'ticker': ticker})
+        return {'message': message, 'ticker': request.ticker}
     else:
-        return jsonify({'error': message}), 404
+        raise HTTPException(status_code=404, detail={'error': message})
 
-@app.route('/api/sectors', methods=['GET'])
-@require_admin
-def get_sectors_route():
-    filter_param = request.args.get('filter', '').strip().lower()
-    page = int(request.args.get('page', 1))
-    per_page = int(request.args.get('per_page', 10))
-    
+@app.get('/api/sectors')
+async def get_sectors_route(
+    filter: str = "",
+    page: int = 1,
+    per_page: int = 10,
+    current_user: Dict[str, Any] = Depends(require_admin)
+):
+    filter_param = filter.strip().lower()
     result = get_sectors_with_filters(filter_param, page, per_page)
-    return jsonify(result)
+    return result
 
-@app.route('/api/sectors', methods=['POST'])
-@require_admin
-def add_sector_route():
-    data = request.get_json()
-    if not data or 'sector' not in data:
-        return jsonify({'error': 'sector is required'}), 400
-    
-    success, message = add_sector_to_file(data['sector'])
+@app.post('/api/sectors')
+async def add_sector_route(
+    request: SectorRequest,
+    current_user: Dict[str, Any] = Depends(require_admin)
+):
+    success, message = add_sector_to_file(request.sector)
     
     if success:
-        return jsonify({'message': message, 'sector': data['sector']}), 201
+        return {'message': message, 'sector': request.sector}
     else:
-        return jsonify({'error': message}), 400
+        raise HTTPException(status_code=400, detail={'error': message})
 
-@app.route('/api/sectors/update', methods=['PUT'])
-@require_admin
-def update_sector_route():
-    data = request.get_json()
-    if not data or 'oldSector' not in data or 'newSector' not in data:
-        return jsonify({'error': 'oldSector and newSector are required'}), 400
-    
-    old_sector = data['oldSector']
-    new_sector = data['newSector']
-    
-    success, message = update_sector_in_file(old_sector, new_sector)
+@app.put('/api/sectors/update')
+async def update_sector_route(
+    request: SectorUpdateRequest,
+    current_user: Dict[str, Any] = Depends(require_admin)
+):
+    success, message = update_sector_in_file(request.oldSector, request.newSector)
     
     if success:
-        return jsonify({'message': message, 'sector': new_sector})
+        return {'message': message, 'sector': request.newSector}
     else:
-        return jsonify({'error': message}), 404
+        raise HTTPException(status_code=404, detail={'error': message})
 
-@app.route('/api/sectors/delete', methods=['POST'])
-@require_admin
-def delete_sector_route():
-    data = request.get_json()
-    if not data or 'sector' not in data:
-        return jsonify({'error': 'sector is required'}), 400
-    
-    sector = data['sector']
-    success, message = delete_sector_from_file(sector)
+@app.post('/api/sectors/delete')
+async def delete_sector_route(
+    request: SectorDeleteRequest,
+    current_user: Dict[str, Any] = Depends(require_admin)
+):
+    success, message = delete_sector_from_file(request.sector)
     
     if success:
-        return jsonify({'message': message, 'sector': sector})
+        return {'message': message, 'sector': request.sector}
     else:
-        return jsonify({'error': message}), 404
+        raise HTTPException(status_code=404, detail={'error': message})
 
 # User management endpoints
-@app.route('/api/users', methods=['GET'])
-@require_admin
-def get_users_route():
-    username_param = request.args.get('filter', '').strip().lower()
-    page = int(request.args.get('page', 1))
-    per_page = int(request.args.get('per_page', 10))
-    
+@app.get('/api/users')
+async def get_users_route(
+    filter: str = "",
+    page: int = 1,
+    per_page: int = 10,
+    current_user: Dict[str, Any] = Depends(require_admin)
+):
+    username_param = filter.strip().lower()
     result = get_users_with_filters(username_param, page, per_page)
-    return jsonify(result)
+    return result
 
-@app.route('/api/users', methods=['POST'])
-@require_admin
-def add_user_route():
-    data = request.get_json()
-    if not data or 'username' not in data or 'password' not in data or 'role' not in data or 'firstname' not in data or 'lastname' not in data:
-        return jsonify({'error': 'username, password, role, firstname, and lastname are required'}), 400
-    
-    username = data['username']
-    password = data['password']
-    role = data['role']
-    firstname = data['firstname']
-    lastname = data['lastname']
-    
-    success, message = add_user_to_file(username, password, role, firstname, lastname)
+@app.post('/api/users')
+async def add_user_route(
+    request: UserRequest,
+    current_user: Dict[str, Any] = Depends(require_admin)
+):
+    success, message = add_user_to_file(
+        request.username, 
+        request.password, 
+        request.role, 
+        request.firstname, 
+        request.lastname
+    )
     
     if success:
-        return jsonify({'message': message, 'user': {'username': username, 'role': role, 'firstname': firstname, 'lastname': lastname}}), 201
+        return {
+            'message': message, 
+            'user': {
+                'username': request.username, 
+                'role': request.role, 
+                'firstname': request.firstname, 
+                'lastname': request.lastname
+            }
+        }
     else:
-        return jsonify({'error': message}), 400
+        raise HTTPException(status_code=400, detail={'error': message})
 
-@app.route('/api/users/update', methods=['PUT'])
-@require_admin
-def update_user_route():
-    data = request.get_json()
-    if not data or 'oldUsername' not in data or 'username' not in data or 'role' not in data or 'firstname' not in data or 'lastname' not in data:
-        return jsonify({'error': 'oldUsername, username, role, firstname, and lastname are required'}), 400
-    
-    old_username = data['oldUsername']
-    username = data['username']
-    password = data.get('password', '')  # Optional for updates
-    role = data['role']
-    firstname = data['firstname']
-    lastname = data['lastname']
-    
-    success, message = update_user_in_file(old_username, username, password, role, firstname, lastname)
+@app.put('/api/users/update')
+async def update_user_route(
+    request: UserUpdateRequest,
+    current_user: Dict[str, Any] = Depends(require_admin)
+):
+    success, message = update_user_in_file(
+        request.oldUsername, 
+        request.username, 
+        request.password, 
+        request.role, 
+        request.firstname, 
+        request.lastname
+    )
     
     if success:
-        return jsonify({'message': message, 'user': {'username': username, 'role': role, 'firstname': firstname, 'lastname': lastname}})
+        return {
+            'message': message, 
+            'user': {
+                'username': request.username, 
+                'role': request.role, 
+                'firstname': request.firstname, 
+                'lastname': request.lastname
+            }
+        }
     else:
-        return jsonify({'error': message}), 404
+        raise HTTPException(status_code=404, detail={'error': message})
 
-@app.route('/api/users/delete', methods=['POST'])
-@require_admin
-def delete_user_route():
-    data = request.get_json()
-    if not data or 'username' not in data:
-        return jsonify({'error': 'username is required'}), 400
-    
-    username = data['username']
-    success, message = delete_user_from_file(username)
+@app.post('/api/users/delete')
+async def delete_user_route(
+    request: UserDeleteRequest,
+    current_user: Dict[str, Any] = Depends(require_admin)
+):
+    success, message = delete_user_from_file(request.username)
     
     if success:
-        return jsonify({'message': message, 'username': username})
+        return {'message': message, 'username': request.username}
     else:
-        return jsonify({'error': message}), 404
+        raise HTTPException(status_code=404, detail={'error': message})
 
 # User-accessible routes
-@app.route('/api/stock-summary', methods=['GET'])
-@require_auth
-def get_stock_summary_route():
-    sectors_param = request.args.get('sectors', '').strip()
-    isxticker_param = request.args.get('isxticker', None)
-    date_from_param = request.args.get('date_from', '').strip()
-    date_to_param = request.args.get('date_to', '').strip()
+@app.get('/api/stock-summary')
+async def get_stock_summary_route(
+    sectors: str = "",
+    isxticker: Optional[bool] = None,
+    date_from: str = "",
+    date_to: str = "",
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
+    sectors_param = sectors.strip()
+    date_from_param = date_from.strip()
+    date_to_param = date_to.strip()
     
-    results = get_stock_summary(sectors_param, isxticker_param, date_from_param, date_to_param)
+    results = get_stock_summary(sectors_param, isxticker, date_from_param, date_to_param)
     
-    return jsonify({
-        'groups': results
-    })
+    return {'groups': results}
 
-@app.route('/api/earning-summary', methods=['GET'])
-@require_auth
-def get_earning_summary_route():
-    sectors_param = request.args.get('sectors', '').strip()
-    date_from_param = request.args.get('date_from', '').strip()
-    date_to_param = request.args.get('date_to', '').strip()
-    page = int(request.args.get('page', 1))
-    per_page = int(request.args.get('per_page', 10))
+@app.get('/api/earning-summary')
+async def get_earning_summary_route(
+    sectors: str = "",
+    date_from: str = "",
+    date_to: str = "",
+    page: int = 1,
+    per_page: int = 10,
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
+    sectors_param = sectors.strip()
+    date_from_param = date_from.strip()
+    date_to_param = date_to.strip()
     
     result = get_earning_summary(sectors_param, date_from_param, date_to_param, page, per_page)
-    return jsonify(result)
+    return result
 
 # Download endpoints
-@app.route('/api/download/<file_type>', methods=['GET'])
-@require_auth
-def download_file_route(file_type):
+@app.get('/api/download/{file_type}')
+async def download_file_route(
+    file_type: str,
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
     """Download JSON files based on file type"""
     try:
         if file_type == 'users':
             # Only admin can download users file
-            if request.user.get('role') != 'admin':
-                return jsonify({'error': 'Admin access required'}), 403
+            if current_user.get('role') != 'admin':
+                raise HTTPException(status_code=403, detail={'error': 'Admin access required'})
             
             with open('user.json', 'r') as file:
                 data = json.load(file)
@@ -350,42 +351,55 @@ def download_file_route(file_type):
                 if 'password' in user:
                     del user['password']
             
-            return jsonify(data)
+            return data
             
         elif file_type == 'stocks':
             # Load stocks data
             stocks = load_stocks()
-            return jsonify(stocks)
+            return stocks
             
         elif file_type == 'sectors':
             # Load sectors data
             sectors = load_sectors()
-            return jsonify(sectors)
+            return sectors
             
         else:
-            return jsonify({'error': 'Invalid file type'}), 400
+            raise HTTPException(status_code=400, detail={'error': 'Invalid file type'})
             
     except FileNotFoundError:
-        return jsonify({'error': 'File not found'}), 404
+        raise HTTPException(status_code=404, detail={'error': 'File not found'})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail={'error': str(e)})
 
 # Sentiment Analysis endpoint
-@app.route('/api/sentiment/<ticker>', methods=['GET'])
-@require_auth
-def get_sentiment_route(ticker):
+@app.get('/api/sentiment/{ticker}')
+async def get_sentiment_route(
+    ticker: str,
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
     """Get sentiment analysis for a specific ticker"""
     try:
         if not ticker or ticker.strip() == '':
-            return jsonify({'error': 'Ticker is required'}), 400
+            raise HTTPException(status_code=400, detail={'error': 'Ticker is required'})
         
         ticker = ticker.strip().upper()
         sentiment_data = get_sentiment_analysis(ticker)
         
-        return jsonify(sentiment_data)
+        return sentiment_data
         
     except Exception as e:
         logging.error(f"Error getting sentiment for {ticker}: {str(e)}")
-        return jsonify({'error': 'Failed to get sentiment data'}), 500
+        raise HTTPException(status_code=500, detail={'error': 'Failed to get sentiment data'})
 
-app.run(debug=True) 
+# Catch-all route for static files - must be at the end
+@app.get("/{path:path}")
+async def serve_static(path: str):
+    file_path = os.path.join("static", path)
+    if os.path.exists(file_path) and os.path.isfile(file_path):
+        return FileResponse(file_path)
+    else:
+        return FileResponse("static/index.html")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000) 
