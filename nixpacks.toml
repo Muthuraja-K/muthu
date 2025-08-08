@@ -1,9 +1,12 @@
 # Railway Nixpacks configuration for Python 3.11
 [phases.setup]
-nixPkgs = ["python311", "python311Packages.pip", "python311Packages.numpy", "python311Packages.pandas"]
+nixPkgs = ["python311", "python311Packages.pip"]
 
 [phases.install]
-cmds = ["pip install --break-system-packages -r requirements.txt"]
+cmds = [
+    "pip install --break-system-packages --upgrade pip setuptools wheel",
+    "pip install --break-system-packages -r requirements.txt"
+]
 
 [phases.build]
 cmds = ["echo 'Build completed'"]
