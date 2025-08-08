@@ -6,6 +6,7 @@ Simple startup script for Railway debugging
 import os
 import sys
 import logging
+import traceback
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -20,15 +21,59 @@ def main():
         port = os.environ.get("PORT", "8000")
         logger.info(f"PORT environment variable: {port}")
         
-        # Try to import the app
-        logger.info("Importing main app...")
-        from main import app
-        logger.info("App imported successfully")
+        # Check Python version
+        logger.info(f"Python version: {sys.version}")
         
-        # Try to import uvicorn
-        logger.info("Importing uvicorn...")
-        import uvicorn
-        logger.info(f"Uvicorn version: {uvicorn.__version__}")
+        # Check current directory
+        logger.info(f"Current directory: {os.getcwd()}")
+        logger.info(f"Files in directory: {os.listdir('.')}")
+        
+        # Try to import the app step by step
+        logger.info("Testing imports step by step...")
+        
+        # Test basic imports
+        try:
+            import fastapi
+            logger.info(f"✓ FastAPI {fastapi.__version__}")
+        except ImportError as e:
+            logger.error(f"✗ FastAPI import failed: {e}")
+            traceback.print_exc()
+            return 1
+        
+        try:
+            import uvicorn
+            logger.info(f"✓ Uvicorn {uvicorn.__version__}")
+        except ImportError as e:
+            logger.error(f"✗ Uvicorn import failed: {e}")
+            traceback.print_exc()
+            return 1
+        
+        # Test local imports
+        try:
+            from models import *
+            logger.info("✓ models imported")
+        except ImportError as e:
+            logger.error(f"✗ models import failed: {e}")
+            traceback.print_exc()
+            return 1
+        
+        try:
+            from auth_operations import get_current_user, require_auth, require_admin
+            logger.info("✓ auth_operations imported")
+        except ImportError as e:
+            logger.error(f"✗ auth_operations import failed: {e}")
+            traceback.print_exc()
+            return 1
+        
+        # Try to import the main app
+        logger.info("Importing main app...")
+        try:
+            from main import app
+            logger.info("✓ App imported successfully")
+        except Exception as e:
+            logger.error(f"✗ App import failed: {e}")
+            traceback.print_exc()
+            return 1
         
         # Start the server
         logger.info(f"Starting server on port {port}...")
@@ -41,9 +86,8 @@ def main():
         
     except Exception as e:
         logger.error(f"Startup failed: {e}")
-        import traceback
         traceback.print_exc()
-        sys.exit(1)
+        return 1
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

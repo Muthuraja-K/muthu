@@ -9,22 +9,93 @@ import json
 from typing import Optional, List, Dict, Any
 import asyncio
 import time
-
-# Import models and operations
-from models import *
-from auth_operations import get_current_user, require_auth, require_admin, login_user, verify_token
-from stock_operations import get_stock_details, add_stock_to_file, update_stock_in_file, delete_stock_from_file, get_stock_with_filters
-from enhanced_stock_operations import get_enhanced_stock_details, get_realtime_price_updates, update_ticker_today_data, force_update_ticker_today_data
-from history_cache import history_cache
-from stock_summary import get_stock_summary
-from sector_operations import get_sectors_with_filters, add_sector_to_file, update_sector_in_file, delete_sector_from_file
-from user_operations import get_users_with_filters, add_user_to_file, update_user_in_file, delete_user_from_file
-from earning_summary import get_earning_summary
-from sentiment_analysis import get_sentiment_analysis
+import traceback
+import sys
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Import models and operations with error handling
+try:
+    from models import *
+    logger.info("✓ models imported successfully")
+except ImportError as e:
+    logger.error(f"✗ Failed to import models: {e}")
+    traceback.print_exc()
+    raise
+
+try:
+    from auth_operations import get_current_user, require_auth, require_admin, login_user, verify_token
+    logger.info("✓ auth_operations imported successfully")
+except ImportError as e:
+    logger.error(f"✗ Failed to import auth_operations: {e}")
+    traceback.print_exc()
+    raise
+
+try:
+    from stock_operations import get_stock_details, add_stock_to_file, update_stock_in_file, delete_stock_from_file, get_stock_with_filters
+    logger.info("✓ stock_operations imported successfully")
+except ImportError as e:
+    logger.error(f"✗ Failed to import stock_operations: {e}")
+    traceback.print_exc()
+    raise
+
+try:
+    from enhanced_stock_operations import get_enhanced_stock_details, get_realtime_price_updates, update_ticker_today_data, force_update_ticker_today_data
+    logger.info("✓ enhanced_stock_operations imported successfully")
+except ImportError as e:
+    logger.error(f"✗ Failed to import enhanced_stock_operations: {e}")
+    traceback.print_exc()
+    raise
+
+try:
+    from history_cache import history_cache
+    logger.info("✓ history_cache imported successfully")
+except ImportError as e:
+    logger.error(f"✗ Failed to import history_cache: {e}")
+    traceback.print_exc()
+    raise
+
+try:
+    from stock_summary import get_stock_summary
+    logger.info("✓ stock_summary imported successfully")
+except ImportError as e:
+    logger.error(f"✗ Failed to import stock_summary: {e}")
+    traceback.print_exc()
+    raise
+
+try:
+    from sector_operations import get_sectors_with_filters, add_sector_to_file, update_sector_in_file, delete_sector_from_file
+    logger.info("✓ sector_operations imported successfully")
+except ImportError as e:
+    logger.error(f"✗ Failed to import sector_operations: {e}")
+    traceback.print_exc()
+    raise
+
+try:
+    from user_operations import get_users_with_filters, add_user_to_file, update_user_in_file, delete_user_from_file
+    logger.info("✓ user_operations imported successfully")
+except ImportError as e:
+    logger.error(f"✗ Failed to import user_operations: {e}")
+    traceback.print_exc()
+    raise
+
+try:
+    from earning_summary import get_earning_summary
+    logger.info("✓ earning_summary imported successfully")
+except ImportError as e:
+    logger.error(f"✗ Failed to import earning_summary: {e}")
+    traceback.print_exc()
+    raise
+
+try:
+    from sentiment_analysis import get_sentiment_analysis
+    logger.info("✓ sentiment_analysis imported successfully")
+except ImportError as e:
+    logger.error(f"✗ Failed to import sentiment_analysis: {e}")
+    traceback.print_exc()
+    raise
 
 # Create FastAPI app with performance optimizations
 app = FastAPI(
@@ -94,8 +165,17 @@ session.mount("https://", adapter)
 # Application startup event
 @app.on_event("startup")
 async def startup_event():
-    logging.info("Stock Prediction API started successfully!")
-    logging.info("Health endpoint available at /health")
+    try:
+        logging.info("Stock Prediction API starting up...")
+        logging.info(f"Python version: {sys.version}")
+        logging.info(f"Current directory: {os.getcwd()}")
+        logging.info(f"Environment variables: PORT={os.environ.get('PORT', 'Not set')}")
+        logging.info("Stock Prediction API started successfully!")
+        logging.info("Health endpoint available at /health")
+    except Exception as e:
+        logging.error(f"Startup failed: {e}")
+        traceback.print_exc()
+        raise
 
 @app.get("/")
 async def serve_frontend():
@@ -569,13 +649,22 @@ if __name__ == "__main__":
     import uvicorn
     import os
     
-    # Get port from environment variable (Railway sets this)
-    port = int(os.environ.get("PORT", 8000))
-    
-    uvicorn.run(
-        app, 
-        host="0.0.0.0", 
-        port=port, 
-        reload=False,  # Disable auto-reload
-        log_level="info"
-    ) 
+    try:
+        # Get port from environment variable (Railway sets this)
+        port = int(os.environ.get("PORT", 8000))
+        
+        logging.info(f"Starting application on port {port}")
+        logging.info(f"Python version: {sys.version}")
+        logging.info(f"Current directory: {os.getcwd()}")
+        
+        uvicorn.run(
+            app, 
+            host="0.0.0.0", 
+            port=port, 
+            reload=False,  # Disable auto-reload
+            log_level="info"
+        )
+    except Exception as e:
+        logging.error(f"Failed to start application: {e}")
+        traceback.print_exc()
+        sys.exit(1) 
