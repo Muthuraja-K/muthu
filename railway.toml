@@ -2,10 +2,10 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "python3 -m uvicorn main:app --host 0.0.0.0 --port $PORT --log-level info"
+startCommand = "python -m uvicorn main:app --host 0.0.0.0 --port $PORT --log-level info"
 
 [env]
 PYTHON_VERSION = "3.11"
 SECRET_KEY = "your-production-secret-key-change-this-in-railway-dashboard"
 ALLOWED_ORIGINS = "*"
-NIXPACKS_PYTHON_VERSION = "3.11"
+PIP_BREAK_SYSTEM_PACKAGES = "1"

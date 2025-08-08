@@ -1,8 +1,10 @@
+# Railway Nixpacks configuration for Python 3.11
+# Using --break-system-packages flag to handle externally managed environment error
 [phases.setup]
 nixPkgs = ["python311", "python311Packages.pip"]
 
 [phases.install]
-cmds = ["pip install -r requirements.txt"]
+cmds = ["pip install --break-system-packages -r requirements.txt"]
 
 [phases.build]
 cmds = ["echo 'Build completed'"]
