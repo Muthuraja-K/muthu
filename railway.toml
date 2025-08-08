@@ -5,7 +5,5 @@ builder = "nixpacks"
 startCommand = "python -m uvicorn main:app --host 0.0.0.0 --port $PORT --log-level info"
 
 [env]
-PYTHON_VERSION = "3.11"
 SECRET_KEY = "your-production-secret-key-change-this-in-railway-dashboard"
 ALLOWED_ORIGINS = "*"
-PIP_BREAK_SYSTEM_PACKAGES = "1"
