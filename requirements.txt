@@ -1,7 +1,6 @@
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 yfinance==0.2.18
-gunicorn==21.2.0
 PyJWT==2.8.0
 bcrypt==4.1.2
 requests==2.31.0

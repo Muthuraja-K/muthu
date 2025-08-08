@@ -7,13 +7,18 @@ echo "Current directory: $(pwd)"
 echo "Files in current directory:"
 ls -la
 
-# Check if gunicorn is installed
-echo "Checking gunicorn installation..."
-python -c "import gunicorn; print('Gunicorn version:', gunicorn.__version__)"
+# Check if Python is available
+if ! command -v python &> /dev/null; then
+    echo "ERROR: Python not found!"
+    exit 1
+fi
 
 # Check if uvicorn is installed
 echo "Checking uvicorn installation..."
-python -c "import uvicorn; print('Uvicorn version:', uvicorn.__version__)"
+python -c "import uvicorn; print('Uvicorn version:', uvicorn.__version__)" || {
+    echo "ERROR: Uvicorn not found! Installing dependencies..."
+    pip install -r requirements.txt
+}
 
 # Check if main.py exists
 if [ -f "main.py" ]; then
@@ -24,5 +29,5 @@ else
 fi
 
 # Start the application
-echo "Starting application with gunicorn..."
-exec gunicorn main:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120
+echo "Starting application with uvicorn..."
+exec python -m uvicorn main:app --host 0.0.0.0 --port $PORT --log-level info
