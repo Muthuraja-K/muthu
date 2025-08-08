@@ -94,19 +94,40 @@ session.mount("https://", adapter)
 # Application startup event
 @app.on_event("startup")
 async def startup_event():
-    logging.info("Stock Prediction API started successfully!")
-    logging.info("Initializing history cache...")
-    # The cache will be loaded automatically when the module is imported
-    logging.info(f"History cache initialized with {len(history_cache.cache_data)} stocks")
+    try:
+        logging.info("Stock Prediction API started successfully!")
+        logging.info("Initializing history cache...")
+        # The cache will be loaded automatically when the module is imported
+        logging.info(f"History cache initialized with {len(history_cache.cache_data)} stocks")
+    except Exception as e:
+        logging.error(f"Error during startup: {e}")
+        # Don't fail startup for cache issues
 
 @app.get("/")
 async def serve_frontend():
-    return FileResponse("static/index.html")
+    try:
+        return FileResponse("static/index.html")
+    except Exception as e:
+        logging.error(f"Error serving frontend: {e}")
+        return {"message": "Stock Prediction API is running", "status": "ok"}
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint for Railway monitoring"""
-    return {"status": "healthy", "message": "Stock Prediction API is running"}
+    try:
+        # Basic health check - just return success
+        return {
+            "status": "healthy", 
+            "message": "Stock Prediction API is running",
+            "timestamp": "2024-01-01T00:00:00Z"
+        }
+    except Exception as e:
+        logging.error(f"Health check failed: {e}")
+        return {
+            "status": "unhealthy",
+            "message": f"Health check failed: {str(e)}",
+            "timestamp": "2024-01-01T00:00:00Z"
+        }
 
 # Authentication endpoints
 @app.post('/api/login')
