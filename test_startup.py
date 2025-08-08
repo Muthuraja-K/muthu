@@ -79,7 +79,7 @@ def test_imports():
     
     # Test local modules
     try:
-        from models import *
+        from models import LoginRequest, TokenRequest, StockRequest, SectorRequest, UserRequest
         print("✓ models")
     except ImportError as e:
         print(f"✗ models import failed: {e}")

@@ -50,7 +50,7 @@ def main():
         
         # Test local imports
         try:
-            from models import *
+            import models
             logger.info("✓ models imported")
         except ImportError as e:
             logger.error(f"✗ models import failed: {e}")

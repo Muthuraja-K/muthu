@@ -18,7 +18,11 @@ logger = logging.getLogger(__name__)
 
 # Import models and operations with error handling
 try:
-    from models import *
+    from models import (
+        LoginRequest, TokenRequest, EarningData, TimeBasedData, StockRequest,
+        StockUpdateRequest, StockDeleteRequest, EnhancedStockData, SectorRequest,
+        SectorUpdateRequest, SectorDeleteRequest, UserRequest, UserUpdateRequest, UserDeleteRequest
+    )
     logger.info("✓ models imported successfully")
 except ImportError as e:
     logger.error(f"✗ Failed to import models: {e}")
