@@ -15,11 +15,6 @@
     "isxticker": false
   },
   {
-    "ticker": "IBM",
-    "sector": "Quantum",
-    "isxticker": false
-  },
-  {
     "ticker": "IONX",
     "sector": "Quantum",
     "isxticker": true
@@ -55,16 +50,6 @@
     "isxticker": false
   },
   {
-    "ticker": "AIRO",
-    "sector": "Drone Delivery/FlyingTaxi",
-    "isxticker": false
-  },
-  {
-    "ticker": "RCAT",
-    "sector": "Drone Delivery/FlyingTaxi",
-    "isxticker": false
-  },
-  {
     "ticker": "SRFM",
     "sector": "Drone Delivery/FlyingTaxi",
     "isxticker": false
@@ -95,17 +80,7 @@
     "isxticker": false
   },
   {
-    "ticker": "MU",
-    "sector": "SemiConductor",
-    "isxticker": false
-  },
-  {
     "ticker": "ARM",
-    "sector": "SemiConductor",
-    "isxticker": false
-  },
-  {
-    "ticker": "SOXL",
     "sector": "SemiConductor",
     "isxticker": false
   },
@@ -150,17 +125,7 @@
     "isxticker": true
   },
   {
-    "ticker": "MULL",
-    "sector": "SemiConductor",
-    "isxticker": true
-  },
-  {
     "ticker": "ARMU",
-    "sector": "SemiConductor",
-    "isxticker": true
-  },
-  {
-    "ticker": "SOXL",
     "sector": "SemiConductor",
     "isxticker": true
   },
@@ -205,22 +170,17 @@
     "isxticker": false
   },
   {
-    "ticker": "MSTR",
+    "ticker": "SOL-USD",
     "sector": "Crypto",
     "isxticker": false
   },
   {
-    "ticker": "SOL",
+    "ticker": "BTC-USD",
     "sector": "Crypto",
     "isxticker": false
   },
   {
-    "ticker": "BTC",
-    "sector": "Crypto",
-    "isxticker": false
-  },
-  {
-    "ticker": "ETH",
+    "ticker": "ETH-USD",
     "sector": "Crypto",
     "isxticker": false
   },
@@ -251,11 +211,6 @@
   },
   {
     "ticker": "RIOX",
-    "sector": "Crypto",
-    "isxticker": true
-  },
-  {
-    "ticker": "MSTU",
     "sector": "Crypto",
     "isxticker": true
   },
@@ -346,16 +301,6 @@
   },
   {
     "ticker": "UPST",
-    "sector": "Finance",
-    "isxticker": false
-  },
-  {
-    "ticker": "NU",
-    "sector": "Finance",
-    "isxticker": false
-  },
-  {
-    "ticker": "BULL",
     "sector": "Finance",
     "isxticker": false
   },
@@ -495,27 +440,7 @@
     "isxticker": false
   },
   {
-    "ticker": "UEC",
-    "sector": "Energy",
-    "isxticker": false
-  },
-  {
-    "ticker": "LTBR",
-    "sector": "Energy",
-    "isxticker": false
-  },
-  {
-    "ticker": "LEO",
-    "sector": "Energy",
-    "isxticker": false
-  },
-  {
     "ticker": "NNE",
-    "sector": "Energy",
-    "isxticker": false
-  },
-  {
-    "ticker": "NUKZ",
     "sector": "Energy",
     "isxticker": false
   },
@@ -535,11 +460,6 @@
     "isxticker": false
   },
   {
-    "ticker": "DNN",
-    "sector": "Energy",
-    "isxticker": false
-  },
-  {
     "ticker": "OKLL",
     "sector": "Energy",
     "isxticker": true
@@ -555,17 +475,7 @@
     "isxticker": false
   },
   {
-    "ticker": "LLY",
-    "sector": "Healthcare",
-    "isxticker": false
-  },
-  {
     "ticker": "NVO",
-    "sector": "Healthcare",
-    "isxticker": false
-  },
-  {
-    "ticker": "UNH",
     "sector": "Healthcare",
     "isxticker": false
   },
@@ -576,11 +486,6 @@
   },
   {
     "ticker": "TEMT",
-    "sector": "Healthcare",
-    "isxticker": true
-  },
-  {
-    "ticker": "LLYX",
     "sector": "Healthcare",
     "isxticker": true
   },

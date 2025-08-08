@@ -1,0 +1,29 @@
+{
+  "name": "stock-prediction-api",
+  "version": "1.0.0",
+  "description": "Stock Prediction API with FastAPI",
+  "main": "main.py",
+  "scripts": {
+    "start": "python main.py",
+    "dev": "python dev_server.py",
+    "dev:reload": "uvicorn main:app --host 0.0.0.0 --port 8000 --reload",
+    "dev:watch": "uvicorn main:app --host 0.0.0.0 --port 8000 --reload --reload-dir .",
+    "install-deps": "pip install -r requirements.txt",
+    "test": "python -m pytest tests/",
+    "lint": "flake8 .",
+    "format": "black ."
+  },
+  "keywords": [
+    "fastapi",
+    "python",
+    "stock",
+    "prediction",
+    "api"
+  ],
+  "author": "Stock Prediction Team",
+  "license": "MIT",
+  "devDependencies": {},
+  "engines": {
+    "python": ">=3.8"
+  }
+}

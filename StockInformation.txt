@@ -108,3 +108,35 @@ git commit -m "Your commit message here"
 
 # Push to the main branch (or whichever branch you're using)
 git push origin main
+
+
+How to get last two earning result using python
+
+
+finwiz
+
+
+
+Earnings
+  :4:45
+Previous Earning Date 
+	Previous Earning Down/Up
+	EPS /Forcast
+	
+	
+	Last 3 earning
+	
+Leverage
+
+ Ticker, Xticker, Both
+   % Change 
+   
+   
+   "Trading involves significant risk and may not suit all investors. The information on this website serves educational and informational purposes only and is not trading or investment advice".
+   
+   
+   refresh changes
+     Stock -history 
+	 
+	 
+   

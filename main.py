@@ -1,48 +1,98 @@
-from fastapi import FastAPI, Request, HTTPException, Depends, status
-from fastapi.responses import JSONResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi import FastAPI, HTTPException, Depends, Query, Header
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Optional, Dict, Any
-import yfinance as yf
-import json
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import uvicorn
 import logging
-import os
-import sys
-from utils import load_stocks, save_stocks, load_sectors, save_sectors, fmt_currency, fmt_percent
+from typing import Optional, List, Dict, Any
+import asyncio
+import time
+
+# Import models and operations
+from models import *
+from auth_operations import get_current_user, require_auth, require_admin, login_user, verify_token
+from stock_operations import get_stock_details, add_stock_to_file, update_stock_in_file, delete_stock_from_file, get_stock_with_filters
+from enhanced_stock_operations import get_enhanced_stock_details, get_realtime_price_updates, update_ticker_today_data, force_update_ticker_today_data
+from history_cache import history_cache
 from stock_summary import get_stock_summary
-from earning_summary import get_earning_summary
 from sector_operations import get_sectors_with_filters, add_sector_to_file, update_sector_in_file, delete_sector_from_file
 from user_operations import get_users_with_filters, add_user_to_file, update_user_in_file, delete_user_from_file
-from stock_operations import get_stock_with_filters, get_stock_details, add_stock_to_file, update_stock_in_file, delete_stock_from_file
-from auth_operations import login_user, require_auth, require_admin, create_default_users
+from earning_summary import get_earning_summary
 from sentiment_analysis import get_sentiment_analysis
-from models import (
-    LoginRequest, TokenRequest, StockRequest, StockUpdateRequest, StockDeleteRequest,
-    SectorRequest, SectorUpdateRequest, SectorDeleteRequest,
-    UserRequest, UserUpdateRequest, UserDeleteRequest
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Create FastAPI app with performance optimizations
+app = FastAPI(
+    title="Stock Prediction API",
+    description="A FastAPI-based stock prediction and analysis API",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
 )
 
-# Set up logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
-
-app = FastAPI()
-
-# Add CORS middleware
+# Add CORS middleware with optimized settings
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Configure appropriately for production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    max_age=3600,  # Cache preflight requests for 1 hour
 )
 
-# Mount static files
+# Performance optimization: Mount static files efficiently
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Global performance tracking
+_request_times = {}
+
+@app.middleware("http")
+async def performance_middleware(request, call_next):
+    """Middleware to track and optimize request performance"""
+    start_time = time.time()
+    
+    # Add performance headers
+    response = await call_next(request)
+    
+    process_time = time.time() - start_time
+    response.headers["X-Process-Time"] = str(process_time)
+    
+    # Log slow requests
+    if process_time > 2.0:  # Log requests taking more than 2 seconds
+        logger.warning(f"Slow request: {request.url.path} took {process_time:.2f}s")
+    
+    return response
+
+# Optimize connection pooling for external APIs
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+# Configure session with connection pooling and retries
+session = requests.Session()
+retry_strategy = Retry(
+    total=3,
+    backoff_factor=0.1,
+    status_forcelist=[429, 500, 502, 503, 504],
+)
+adapter = HTTPAdapter(
+    max_retries=retry_strategy,
+    pool_connections=100,  # Increased connection pool
+    pool_maxsize=100,      # Increased max connections
+)
+session.mount("http://", adapter)
+session.mount("https://", adapter)
 
 # Application startup event
 @app.on_event("startup")
 async def startup_event():
     logging.info("Stock Prediction API started successfully!")
+    logging.info("Initializing history cache...")
+    # The cache will be loaded automatically when the module is imported
+    logging.info(f"History cache initialized with {len(history_cache.cache_data)} stocks")
 
 @app.get("/")
 async def serve_frontend():
@@ -60,8 +110,6 @@ async def login_route(request: LoginRequest):
 
 @app.post('/api/verify-token')
 async def verify_token_route(request: TokenRequest):
-    from auth_operations import verify_token
-    
     payload = verify_token(request.token)
     if payload:
         return {
@@ -103,15 +151,83 @@ async def get_stockdetails_route(
     isxticker: Optional[bool] = None,
     sort_by: Optional[str] = None,
     sort_order: str = "asc",
-    page: int = 1,
-    per_page: int = 50,
     current_user: Dict[str, Any] = Depends(require_auth)
 ):
     tickers_param = ticker.strip()
     sector_param = sector.strip().lower()
     
-    result = get_stock_details(tickers_param, sector_param, isxticker, sort_by, sort_order, page, per_page)
+    logging.info(f"Stock details request: ticker='{tickers_param}', sector='{sector_param}'")
+    
+    result = get_stock_details(tickers_param, sector_param, isxticker, sort_by, sort_order)
+    
+    logging.info(f"Stock details result: {len(result.get('results', []))} stocks returned")
+    
     return result
+
+@app.get('/api/getenhancedstockdetails')
+async def get_enhanced_stockdetails_route(
+    ticker: str = "",
+    sector: str = "",
+    leverage_filter: str = "Ticker Only",
+    sort_by: str = "today_percentage",
+    sort_order: str = "desc",
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
+    tickers_param = ticker.strip()
+    sector_param = sector.strip().lower()
+    
+    logging.info(f"Enhanced stock details request: ticker='{tickers_param}', sector='{sector_param}', leverage='{leverage_filter}'")
+    
+    result = get_enhanced_stock_details(tickers_param, sector_param, leverage_filter, sort_by, sort_order)
+    
+    logging.info(f"Enhanced stock details result: {len(result.get('results', []))} stocks returned")
+    
+    return result
+
+@app.get('/api/realtime-prices')
+async def get_realtime_prices_route(
+    tickers: str = "",
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
+    """Get real-time price and today's data updates for specified tickers"""
+    if not tickers:
+        return {}
+    
+    ticker_list = [t.strip().upper() for t in tickers.split(',') if t.strip()]
+    updates = get_realtime_price_updates(ticker_list)
+    
+    return updates
+
+@app.post('/api/update-ticker-data')
+async def update_ticker_data_route(
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
+    """Manually trigger update of Ticker_Today.json"""
+    try:
+        result = update_ticker_today_data()
+        return {
+            'message': f'Successfully updated data for {len(result)} stocks',
+            'count': len(result)
+        }
+    except Exception as e:
+        logging.error(f"Error updating ticker data: {e}")
+        raise HTTPException(status_code=500, detail={'error': str(e)})
+
+@app.post('/api/force-update-ticker-data')
+async def force_update_ticker_data_route(
+    current_user: Dict[str, Any] = Depends(require_admin)
+):
+    """Force update Ticker_Today.json regardless of daily update check"""
+    try:
+        logging.info(f"Force ticker data update requested by admin: {current_user.get('username', 'unknown')}")
+        result = force_update_ticker_today_data()
+        return {
+            'message': f'Successfully force updated data for {len(result)} stocks',
+            'count': len(result)
+        }
+    except Exception as e:
+        logging.error(f"Error force updating ticker data: {e}")
+        raise HTTPException(status_code=500, detail={'error': str(e)})
 
 # Admin-only routes
 @app.post('/api/stocks')
@@ -355,11 +471,13 @@ async def download_file_route(
             
         elif file_type == 'stocks':
             # Load stocks data
+            from stock_operations import load_stocks
             stocks = load_stocks()
             return stocks
             
         elif file_type == 'sectors':
             # Load sectors data
+            from sector_operations import load_sectors
             sectors = load_sectors()
             return sectors
             
@@ -391,6 +509,26 @@ async def get_sentiment_route(
         logging.error(f"Error getting sentiment for {ticker}: {str(e)}")
         raise HTTPException(status_code=500, detail={'error': 'Failed to get sentiment data'})
 
+# Test Earnings Data endpoint
+@app.get('/api/test-earnings/{ticker}')
+async def test_earnings_route(
+    ticker: str,
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
+    """Test earnings data retrieval for debugging"""
+    try:
+        if not ticker or ticker.strip() == '':
+            raise HTTPException(status_code=400, detail={'error': 'Ticker is required'})
+        
+        ticker = ticker.strip().upper()
+        earnings_test = history_cache.test_earnings_data(ticker)
+        
+        return earnings_test
+        
+    except Exception as e:
+        logging.error(f"Error testing earnings for {ticker}: {str(e)}")
+        raise HTTPException(status_code=500, detail={'error': 'Failed to test earnings data'})
+
 # Catch-all route for static files - must be at the end
 @app.get("/{path:path}")
 async def serve_static(path: str):
@@ -402,4 +540,12 @@ async def serve_static(path: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=8000, 
+        reload=True,  # Enable auto-reload
+        reload_dirs=["."],  # Watch current directory for changes
+        reload_excludes=["*.pyc", "__pycache__", "*.log", "*.json"],  # Exclude certain files
+        log_level="info"
+    ) 

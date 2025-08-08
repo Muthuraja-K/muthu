@@ -6,14 +6,54 @@ from pandas import Timestamp
 from utils import load_stocks, fmt_currency, fmt_percent, convert_ui_date_to_iso
 import concurrent.futures
 from typing import List, Dict, Any, Tuple
+import time
 
-def process_single_stock_summary(stock: Dict, date_from_iso: str, date_to_iso: str, sector: str) -> Dict[str, Any]:
-    """
-    Process a single stock to get its summary information
-    This function will be called in parallel
-    """
+# Global cache for stock summary data
+_summary_cache = {}
+_summary_cache_ttl = 300  # 5 minutes cache TTL
+_max_summary_cache_size = 500  # Maximum number of cached items
+
+def cleanup_summary_cache():
+    """Clean up expired cache entries and limit cache size"""
+    global _summary_cache
+    current_time = time.time()
+    
+    # Remove expired entries
+    expired_keys = [
+        key for key, (_, timestamp) in _summary_cache.items() 
+        if current_time - timestamp > _summary_cache_ttl
+    ]
+    for key in expired_keys:
+        del _summary_cache[key]
+    
+    # Limit cache size by removing oldest entries
+    if len(_summary_cache) > _max_summary_cache_size:
+        # Sort by timestamp and remove oldest entries
+        sorted_items = sorted(_summary_cache.items(), key=lambda x: x[1][1])
+        items_to_remove = len(_summary_cache) - _max_summary_cache_size
+        for i in range(items_to_remove):
+            del _summary_cache[sorted_items[i][0]]
+    
+    logging.info(f"Summary cache cleanup: {len(expired_keys)} expired entries removed, cache size: {len(_summary_cache)}")
+
+def get_cached_summary_data(symbol: str, date_from_iso: str, date_to_iso: str) -> Tuple[Dict, pd.DataFrame]:
+    """Get stock summary data from cache or fetch from API"""
+    cache_key = f"{symbol}_{date_from_iso}_{date_to_iso}"
+    current_time = time.time()
+    
+    # Periodic cache cleanup
+    if len(_summary_cache) > _max_summary_cache_size * 0.8:  # Cleanup when 80% full
+        cleanup_summary_cache()
+    
+    # Check if we have cached data that's still valid
+    if cache_key in _summary_cache:
+        cached_data, timestamp = _summary_cache[cache_key]
+        if current_time - timestamp < _summary_cache_ttl:
+            return cached_data
+    
+    # Fetch fresh data
     try:
-        ticker = yf.Ticker(stock['ticker'])
+        ticker = yf.Ticker(symbol)
         info = ticker.info
         
         # Determine the date range for historical data
@@ -36,18 +76,38 @@ def process_single_stock_summary(stock: Dict, date_from_iso: str, date_to_iso: s
         else:
             # No dates provided - use last year
             hist = ticker.history(period='1y')
+        
+        # Cache the data
+        _summary_cache[cache_key] = ((info, hist), current_time)
+        
+        return info, hist
+    except Exception as e:
+        logging.error(f"Error fetching summary data for {symbol}: {e}")
+        return None, None
 
-        if hist.empty:
+def process_single_stock_summary(stock: Dict, date_from_iso: str, date_to_iso: str, sector: str) -> Dict[str, Any]:
+    """
+    Process a single stock to get its summary information
+    This function will be called in parallel
+    Optimized for performance with caching and reduced API calls
+    """
+    try:
+        # Get cached or fresh data
+        data = get_cached_summary_data(stock['ticker'], date_from_iso, date_to_iso)
+        if data is None:
+            return None
+        
+        info, hist = data
+        
+        if hist is None or hist.empty:
             return None
 
         current_price = info.get('currentPrice', 0)
         if not current_price or current_price <= 0:
             return None
 
-        # Get start date closing price (first date in filtered range)
+        # Optimize price calculations
         start_date_close_price = hist['Close'].iloc[0] if not hist.empty else 0
-        
-        # Get end date closing price (last date in filtered range)
         end_date_close_price = hist['Close'].iloc[-1] if not hist.empty else 0
 
         # Calculate percentage change based on start and end closing prices
@@ -79,7 +139,7 @@ def process_sector_stocks(sector_stocks: List[Dict], date_from_iso: str, date_to
         return sector, [], 0
 
     # Process stocks in parallel
-    max_workers = min(10, len(sector_stocks))  # Limit concurrent requests
+    max_workers = min(30, len(sector_stocks))  # Further increased concurrent requests limit for faster performance
     
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Submit all tasks for this sector
@@ -114,7 +174,7 @@ def process_sector_stocks(sector_stocks: List[Dict], date_from_iso: str, date_to
 def get_stock_summary(sectors_param, isxticker_param, date_from_param, date_to_param):
     """
     Get stock summary grouped by sectors with filtering and date range support
-    Now uses parallel processing for better performance
+    Now uses parallel processing for better performance with batch processing
     """
     stocks = load_stocks()
 
@@ -143,16 +203,17 @@ def get_stock_summary(sectors_param, isxticker_param, date_from_param, date_to_p
             sector_groups[sector] = []
         sector_groups[sector].append(stock)
 
-    # Process each sector group in parallel
+    # Process each sector group in parallel with batch processing
     results = []
-    max_sector_workers = min(5, len(sector_groups))  # Limit concurrent sectors
+    max_sector_workers = min(20, len(sector_groups))  # Further increased for batch processing
+    batch_size = 30  # Process stocks in batches of 30 per sector
     
-    logging.info(f"Processing {len(sector_groups)} sectors with {max_sector_workers} workers")
+    logging.info(f"Processing {len(sector_groups)} sectors with {max_sector_workers} workers in batches of {batch_size}")
     
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_sector_workers) as executor:
         # Submit all sector processing tasks
         future_to_sector = {
-            executor.submit(process_sector_stocks, sector_stocks, date_from_iso, date_to_iso, sector): sector 
+            executor.submit(process_sector_stocks_batched, sector_stocks, date_from_iso, date_to_iso, sector, batch_size): sector 
             for sector, sector_stocks in sector_groups.items()
         }
         
@@ -183,3 +244,52 @@ def get_stock_summary(sectors_param, isxticker_param, date_from_param, date_to_p
                 continue
 
     return results
+
+def process_sector_stocks_batched(sector_stocks: List[Dict], date_from_iso: str, date_to_iso: str, sector: str, batch_size: int = 30) -> Tuple[str, List[Dict], float]:
+    """
+    Process all stocks in a sector using parallel processing with batch processing
+    Returns: (sector_name, stock_data_list, total_percentage)
+    """
+    if not sector_stocks:
+        return sector, [], 0
+
+    # Process stocks in parallel with batch processing
+    max_workers = min(40, len(sector_stocks))  # Further increased for batch processing
+    sector_data = []
+    total_percentage = 0
+    valid_percentages = 0
+    
+    # Process in batches to avoid overwhelming the API
+    for i in range(0, len(sector_stocks), batch_size):
+        batch_stocks = sector_stocks[i:i + batch_size]
+        batch_workers = min(max_workers, len(batch_stocks))
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=batch_workers) as executor:
+            # Submit batch tasks for this sector
+            future_to_stock = {
+                executor.submit(process_single_stock_summary, stock, date_from_iso, date_to_iso, sector): stock 
+                for stock in batch_stocks
+            }
+            
+            # Collect batch results as they complete
+            for future in concurrent.futures.as_completed(future_to_stock):
+                stock = future_to_stock[future]
+                try:
+                    result = future.result()
+                    if result is not None:
+                        sector_data.append(result)
+                        if 'raw_percentage' in result:
+                            total_percentage += result['raw_percentage']
+                            valid_percentages += 1
+                            # Remove raw_percentage from final result
+                            del result['raw_percentage']
+                        logging.info(f"Completed processing for {stock['ticker']} in sector {sector}")
+                except Exception as e:
+                    logging.error(f"Exception occurred while processing {stock['ticker']}: {e}")
+                    continue
+        
+        # Small delay between batches to avoid rate limiting
+        if i + batch_size < len(sector_stocks):
+            time.sleep(0.1)
+
+    return sector, sector_data, total_percentage if valid_percentages > 0 else 0

@@ -38,6 +38,7 @@ def add_sector_to_file(sector_name):
     
     sectors.append({'sector': sector_name})
     save_sectors(sectors)
+    
     return True, "Sector added successfully"
 
 def update_sector_in_file(old_sector, new_sector):
@@ -61,6 +62,7 @@ def update_sector_in_file(old_sector, new_sector):
         return False, "Sector not found"
     
     save_sectors(sectors)
+    
     return True, "Sector updated successfully"
 
 def delete_sector_from_file(sector_name):
@@ -76,4 +78,5 @@ def delete_sector_from_file(sector_name):
         return False, "Sector not found"
     
     save_sectors(new_sectors)
+    
     return True, "Sector deleted successfully"

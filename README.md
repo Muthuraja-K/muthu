@@ -1,136 +1,188 @@
 # Stock Prediction API
 
-A FastAPI-based stock prediction and analysis application with parallel processing capabilities.
+A FastAPI-based stock prediction and analysis API with enhanced stock details functionality.
 
 ## Features
 
-- **FastAPI Framework**: Modern, fast web framework with automatic API documentation
-- **Parallel Processing**: Optimized stock data fetching with concurrent processing
-- **JWT Authentication**: Secure token-based authentication
-- **Stock Analysis**: Real-time stock data, historical analysis, and sentiment analysis
-- **Sector Management**: Group stocks by sectors with performance tracking
-- **User Management**: Role-based access control (Admin/User)
+- **Enhanced Stock Details**: Comprehensive stock data with time-based analysis (1D, 5D, 1M, 6M, 1Y)
+- **Real-time Price Updates**: Live price and today's change updates with configurable intervals
+- **Smart Caching**: Daily caching system with automatic updates
+- **Advanced Filtering**: Filter by sector, ticker, and leverage type
+- **Sorting**: Sort by any column with percentage-based sorting for time periods
+- **Authentication**: JWT-based authentication with role-based access
+- **Stock Management**: CRUD operations for stocks, sectors, and users
+- **Sentiment Analysis**: Stock sentiment analysis with news and social media data
+- **Earnings Summary**: Earnings data analysis and reporting
+- **Stock Summary**: Historical stock performance summaries
 
-## Railway Deployment
+## Project Structure
 
-### Prerequisites
+### Backend (StockWebApi/)
 
-1. **Railway Account**: Sign up at [railway.app](https://railway.app)
-2. **Git Repository**: Your code should be in a Git repository (GitHub, GitLab, etc.)
+```
+StockWebApi/
+├── main.py                          # FastAPI application with all endpoints
+├── models.py                        # Pydantic models for request/response
+├── enhanced_stock_operations.py     # Enhanced stock data processing
+├── stock_operations.py              # Basic stock CRUD operations
+├── auth_operations.py               # Authentication and user management
+├── sector_operations.py             # Sector management
+├── user_operations.py               # User management
+├── stock_summary.py                 # Stock summary functionality
+├── earning_summary.py               # Earnings summary functionality
+├── sentiment_analysis.py            # Sentiment analysis
+├── history_cache.py                 # Historical data caching
+├── utils.py                         # Utility functions
+├── requirements.txt                 # Python dependencies
+├── stock.json                       # Stock data storage
+├── sector.json                      # Sector data storage
+├── user.json                        # User data storage
+├── Ticker_Today.json                # Enhanced stock data cache (auto-generated)
+└── static/                          # Frontend build files
+```
 
-### Deployment Steps
+### Frontend (StockUI/)
 
-#### Method 1: Deploy from GitHub (Recommended)
-
-1. **Push to GitHub**:
-   ```bash
-   git add .
-   git commit -m "Ready for Railway deployment"
-   git push origin main
-   ```
-
-2. **Deploy on Railway**:
-   - Go to [railway.app](https://railway.app)
-   - Click "New Project"
-   - Select "Deploy from GitHub repo"
-   - Choose your repository
-   - Railway will automatically detect it's a Python project
-
-3. **Configure Environment Variables** (if needed):
-   - Go to your project settings
-   - Add any environment variables under "Variables" tab
-
-#### Method 2: Deploy from Local Directory
-
-1. **Install Railway CLI**:
-   ```bash
-   npm install -g @railway/cli
-   ```
-
-2. **Login to Railway**:
-   ```bash
-   railway login
-   ```
-
-3. **Deploy**:
-   ```bash
-   railway init
-   railway up
-   ```
-
-### Configuration Files
-
-The following files are configured for Railway deployment:
-
-- **`railway.toml`**: Railway-specific configuration
-- **`Procfile.txt`**: Process definition for Railway
-- **`requirements.txt`**: Python dependencies
-- **`.gitignore`**: Excludes unnecessary files
-
-### User Configuration
-
-The application uses existing user information from `user.json`. No default users are created on startup since user data is already configured.
-
-### API Documentation
-
-Once deployed, you can access:
-- **API Documentation**: `https://your-app.railway.app/docs`
-- **Alternative Docs**: `https://your-app.railway.app/redoc`
-
-### Environment Variables
-
-You can set these in Railway dashboard:
-
-- `PYTHON_VERSION`: Python version (default: 3.11)
-- `PORT`: Port number (auto-set by Railway)
-
-### Performance Features
-
-- **Parallel Processing**: Stock data fetching uses ThreadPoolExecutor
-- **Multiple Workers**: Gunicorn with 4 workers for better performance
-- **CORS Enabled**: Frontend can communicate with the API
-- **Static File Serving**: Angular frontend files served automatically
-
-### Monitoring
-
-- Check Railway dashboard for logs and performance metrics
-- Application logs are available in Railway console
-- Monitor resource usage in Railway dashboard
-
-## Local Development
-
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Run locally
-python main.py
-# or
-uvicorn main:app --host 0.0.0.0 --port 8000
+```
+StockUI/src/app/
+├── stock-info/
+│   ├── stock-details.component.ts   # Enhanced stock details component
+│   ├── stocks.component.ts          # Stock management component
+│   ├── sector.component.ts          # Sector management component
+│   ├── stock-info.service.ts        # Stock data service
+│   ├── sector.service.ts            # Sector service
+│   ├── sentiment.service.ts         # Sentiment service
+│   └── models.ts                    # TypeScript interfaces
+├── auth/                            # Authentication components
+├── stock-summary/                   # Stock summary components
+├── earning-summary/                 # Earnings summary components
+├── download/                        # Download components
+└── user/                            # User management components
 ```
 
 ## API Endpoints
+
+### Enhanced Stock Details
+- `GET /api/getenhancedstockdetails` - Get comprehensive stock data with time-based analysis
+- `GET /api/realtime-prices` - Get real-time price and today's change updates
+- `POST /api/update-ticker-data` - Manually trigger data update
+
+### Basic Stock Operations
+- `GET /api/getstock` - Get basic stock list with pagination
+- `GET /api/getstockdetails` - Get detailed stock information (legacy)
+- `POST /api/stocks` - Add new stock
+- `PUT /api/stocks/update` - Update stock
+- `POST /api/stocks/delete` - Delete stock
 
 ### Authentication
 - `POST /api/login` - User login
 - `POST /api/verify-token` - Verify JWT token
 
-### Stock Data
-- `GET /api/getstock` - Get stock list (requires auth)
-- `GET /api/getstockdetails` - Get detailed stock info (requires auth)
-- `GET /api/stock-summary` - Get sector-based stock summary (requires auth)
-
-### Admin Only
-- `POST /api/stocks` - Add stock
-- `PUT /api/stocks/update` - Update stock
-- `POST /api/stocks/delete` - Delete stock
+### Other Features
 - `GET /api/sectors` - Get sectors
-- `GET /api/users` - Get users
+- `GET /api/users` - Get users (admin only)
+- `GET /api/stock-summary` - Get stock summaries
+- `GET /api/earning-summary` - Get earnings summaries
+- `GET /api/sentiment/{ticker}` - Get sentiment analysis
+- `GET /api/download/{file_type}` - Download data files
 
-## Support
+## Enhanced Stock Details Features
 
-For deployment issues, check:
-1. Railway logs in the dashboard
-2. Application logs in the console
-3. Environment variables configuration
-4. Network connectivity and firewall settings 
+### Data Structure
+Each stock record includes:
+- **Basic Info**: Ticker, Sector, Market Cap, Earnings Date
+- **Current Data**: Current Price, Today's Low/High/Change
+- **Time-based Analysis**: 1D, 5D, 1M, 6M, 1Y with Low/High/Percentage Change
+
+### Smart Refresh Logic
+- **Current Price & Today's Data**: Updates at user-defined intervals (1M, 5M, 15M, 1H)
+- **Historical Data**: Only updates when date changes or cache is invalid
+- **Daily Cache**: `Ticker_Today.json` stores comprehensive data and updates daily
+
+### Filtering Options
+- **Sector**: Filter by specific sector
+- **Ticker**: Filter by ticker symbols
+- **Leverage**: 
+  - "Ticker Only" - Regular stocks only
+  - "Leverage Only" - Leveraged stocks only
+  - "Both" - All stocks
+
+### Sorting
+- Sort by any column
+- Time-based columns sort by percentage change, not low/high values
+- Default sort: Today's percentage change (descending)
+
+## Installation & Setup
+
+### Backend Setup
+```bash
+cd StockWebApi
+pip install -r requirements.txt
+python main.py
+```
+
+### Frontend Setup
+```bash
+cd StockUI
+npm install
+ng serve
+```
+
+## Data Files
+
+### stock.json
+Contains basic stock information:
+```json
+{
+  "ticker": "AAPL",
+  "sector": "Technology",
+  "isxticker": false
+}
+```
+
+### Ticker_Today.json (Auto-generated)
+Contains enhanced stock data with time-based analysis:
+```json
+{
+  "ticker": "AAPL",
+  "sector": "Technology",
+  "isxticker": false,
+  "market_cap": "$2.5T",
+  "earning_date": "2024-01-25",
+  "current_price": "$150.25",
+  "today": {
+    "low": "$149.50",
+    "high": "$151.00",
+    "percentage": "+2.5%"
+  },
+  "previous_day": { ... },
+  "five_day": { ... },
+  "one_month": { ... },
+  "six_month": { ... },
+  "one_year": { ... }
+}
+```
+
+## Performance Optimizations
+
+- **Parallel Processing**: Uses ThreadPoolExecutor for concurrent API calls
+- **Smart Caching**: In-memory cache with TTL and file-based daily cache
+- **Batch Processing**: Processes stocks in batches to avoid rate limiting
+- **Connection Pooling**: Optimized HTTP session with retry strategy
+
+## Security
+
+- JWT-based authentication
+- Role-based access control (admin/user)
+- Input validation with Pydantic models
+- CORS configuration for frontend integration
+
+## Monitoring
+
+- Comprehensive logging throughout the application
+- Performance middleware for request tracking
+- Error handling and fallback mechanisms
+
+## Trading Disclaimer
+
+**Trading involves significant risk and may not suit all investors. The information on this website serves educational and informational purposes only and is not trading or investment advice.** 
