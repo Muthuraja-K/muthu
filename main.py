@@ -540,12 +540,4 @@ async def serve_static(path: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        app, 
-        host="0.0.0.0", 
-        port=8000, 
-        reload=True,  # Enable auto-reload
-        reload_dirs=["."],  # Watch current directory for changes
-        reload_excludes=["*.pyc", "__pycache__", "*.log", "*.json"],  # Exclude certain files
-        log_level="info"
-    ) 
+    uvicorn.run(app, host="0.0.0.0", port=8000) 
