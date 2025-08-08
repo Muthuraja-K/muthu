@@ -8,7 +8,7 @@ from fastapi import HTTPException, Depends, Header
 from typing import Optional, Dict, Any
 
 # Secret key for JWT tokens (in production, use a secure secret key)
-SECRET_KEY = "your-secret-key-here-change-in-production"
+SECRET_KEY = os.environ.get("SECRET_KEY", "your-secret-key-here-change-in-production")
 
 def load_users():
     """Load users from user.json file"""

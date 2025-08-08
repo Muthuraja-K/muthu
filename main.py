@@ -557,3 +557,17 @@ async def serve_static(path: str):
         logging.error(f"Error serving static file {path}: {e}")
         raise HTTPException(status_code=404, detail="File not found")
 
+if __name__ == "__main__":
+    import uvicorn
+    import os
+    
+    # Get port from environment variable (Railway sets this)
+    port = int(os.environ.get("PORT", 8000))
+    
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=port, 
+        reload=False,  # Disable auto-reload
+        log_level="info"
+    ) 
