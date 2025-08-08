@@ -4,6 +4,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import uvicorn
 import logging
+import os
+import json
 from typing import Optional, List, Dict, Any
 import asyncio
 import time
@@ -34,9 +36,12 @@ app = FastAPI(
 )
 
 # Add CORS middleware with optimized settings
+# Get allowed origins from environment variable or use default
+allowed_origins = os.environ.get("ALLOWED_ORIGINS", "*").split(",") if os.environ.get("ALLOWED_ORIGINS") else ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=allowed_origins,  # Configure appropriately for production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -97,6 +102,11 @@ async def startup_event():
 @app.get("/")
 async def serve_frontend():
     return FileResponse("static/index.html")
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for Railway monitoring"""
+    return {"status": "healthy", "message": "Stock Prediction API is running"}
 
 # Authentication endpoints
 @app.post('/api/login')
@@ -532,12 +542,32 @@ async def test_earnings_route(
 # Catch-all route for static files - must be at the end
 @app.get("/{path:path}")
 async def serve_static(path: str):
-    file_path = os.path.join("static", path)
-    if os.path.exists(file_path) and os.path.isfile(file_path):
-        return FileResponse(file_path)
-    else:
-        return FileResponse("static/index.html")
+    try:
+        file_path = os.path.join("static", path)
+        if os.path.exists(file_path) and os.path.isfile(file_path):
+            return FileResponse(file_path)
+        else:
+            # Fallback to index.html for SPA routing
+            index_path = os.path.join("static", "index.html")
+            if os.path.exists(index_path):
+                return FileResponse(index_path)
+            else:
+                raise HTTPException(status_code=404, detail="Static files not found")
+    except Exception as e:
+        logging.error(f"Error serving static file {path}: {e}")
+        raise HTTPException(status_code=404, detail="File not found")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    import os
+    
+    # Get port from environment variable (Railway sets this)
+    port = int(os.environ.get("PORT", 8000))
+    
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=port, 
+        reload=False,  # Disable auto-reload
+        log_level="info"
+    ) 
