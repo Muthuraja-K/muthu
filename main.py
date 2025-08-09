@@ -45,29 +45,31 @@ except ImportError as e:
     traceback.print_exc()
     raise
 
-try:
-    from enhanced_stock_operations import get_enhanced_stock_details, get_realtime_price_updates, update_ticker_today_data, force_update_ticker_today_data
-    logger.info("✓ enhanced_stock_operations imported successfully")
-except ImportError as e:
-    logger.error(f"✗ Failed to import enhanced_stock_operations: {e}")
-    traceback.print_exc()
-    raise
+# Temporarily disabled data science operations
+# try:
+#     from enhanced_stock_operations import get_enhanced_stock_details, get_realtime_price_updates, update_ticker_today_data, force_update_ticker_today_data
+#     logger.info("✓ enhanced_stock_operations imported successfully")
+# except ImportError as e:
+#     logger.error(f"✗ Failed to import enhanced_stock_operations: {e}")
+#     traceback.print_exc()
+#     raise
 
-try:
-    from history_cache import history_cache
-    logger.info("✓ history_cache imported successfully")
-except ImportError as e:
-    logger.error(f"✗ Failed to import history_cache: {e}")
-    traceback.print_exc()
-    raise
+# Temporarily disabled data science operations
+# try:
+#     from history_cache import history_cache
+#     logger.info("✓ history_cache imported successfully")
+# except ImportError as e:
+#     logger.error(f"✗ Failed to import history_cache: {e}")
+#     traceback.print_exc()
+#     raise
 
-try:
-    from stock_summary import get_stock_summary
-    logger.info("✓ stock_summary imported successfully")
-except ImportError as e:
-    logger.error(f"✗ Failed to import stock_summary: {e}")
-    traceback.print_exc()
-    raise
+# try:
+#     from stock_summary import get_stock_summary
+#     logger.info("✓ stock_summary imported successfully")
+# except ImportError as e:
+#     logger.error(f"✗ Failed to import stock_summary: {e}")
+#     traceback.print_exc()
+#     raise
 
 try:
     from sector_operations import get_sectors_with_filters, add_sector_to_file, update_sector_in_file, delete_sector_from_file
@@ -85,21 +87,22 @@ except ImportError as e:
     traceback.print_exc()
     raise
 
-try:
-    from earning_summary import get_earning_summary
-    logger.info("✓ earning_summary imported successfully")
-except ImportError as e:
-    logger.error(f"✗ Failed to import earning_summary: {e}")
-    traceback.print_exc()
-    raise
+# Temporarily disabled data science operations
+# try:
+#     from earning_summary import get_earning_summary
+#     logger.info("✓ earning_summary imported successfully")
+# except ImportError as e:
+#     logger.error(f"✗ Failed to import earning_summary: {e}")
+#     traceback.print_exc()
+#     raise
 
-try:
-    from sentiment_analysis import get_sentiment_analysis
-    logger.info("✓ sentiment_analysis imported successfully")
-except ImportError as e:
-    logger.error(f"✗ Failed to import sentiment_analysis: {e}")
-    traceback.print_exc()
-    raise
+# try:
+#     from sentiment_analysis import get_sentiment_analysis
+#     logger.info("✓ sentiment_analysis imported successfully")
+# except ImportError as e:
+#     logger.error(f"✗ Failed to import sentiment_analysis: {e}")
+#     traceback.print_exc()
+#     raise
 
 # Create FastAPI app with performance optimizations
 app = FastAPI(
